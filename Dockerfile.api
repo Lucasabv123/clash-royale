@@ -1,0 +1,32 @@
+# Build stage
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy source
+COPY tsconfig.json ./
+COPY src ./src
+COPY data ./data
+
+# Build TypeScript
+RUN npm run build
+
+# Runtime stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install production deps only
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy built files and data dir (for roles/models volume)
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/data ./data
+
+EXPOSE 5173
+CMD ["node", "dist/server.js"]
+

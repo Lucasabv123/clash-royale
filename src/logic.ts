@@ -1,4 +1,5 @@
 import axios from "axios";
+import { COST, ROLE } from "./roles.js";
 
 export type CardName = string;
 export type Deck = CardName[];
@@ -33,40 +34,7 @@ const API = axios.create({
   headers: { Authorization: `Bearer ${process.env.CR_TOKEN}` }
 });
 
-// --- Minimal elixir costs and role tags (extend over time) ---
-const COST: Record<string, number> = {
-  "Hog Rider": 4, "Mortar": 4, "X-Bow": 6, "Royal Giant": 6,
-  "Lava Hound": 7, "Balloon": 5, "Giant": 5, "Golem": 8, "Miner": 3,
-  "Goblin Drill": 4, "Graveyard": 5, "Ram Rider": 5, "Royal Hogs": 5,
-  "Wall Breakers": 2,
-
-  "Fireball": 4, "Poison": 4, "Rocket": 6, "Lightning": 6, "Earthquake": 3,
-  "The Log": 2, "Zap": 2, "Barbarian Barrel": 2, "Arrows": 3, "Tornado": 3,
-
-  "Cannon": 3, "Tesla": 4, "Bomb Tower": 4, "Inferno Tower": 5, "Goblin Cage": 4,
-
-  "Skeletons": 1, "Ice Spirit": 1, "Fire Spirit": 1, "Ice Golem": 2,
-
-  "Musketeer": 4, "Archers": 3, "Mega Minion": 3, "Baby Dragon": 4,
-  "Electro Wizard": 4, "Inferno Dragon": 4, "Valkyrie": 4, "Knight": 3,
-  "Bats": 2, "Minions": 3, "Phoenix": 4, "Goblin Gang": 3, "Princess": 3
-};
-
-const ROLE = {
-  winCon: new Set([
-    "Hog Rider","X-Bow","Mortar","Royal Giant","Lava Hound","Balloon","Giant",
-    "Golem","Miner","Goblin Drill","Graveyard","Ram Rider","Royal Hogs","Wall Breakers"
-  ]),
-  bigSpell: new Set(["Fireball","Poison","Rocket","Lightning"]),
-  smallSpell: new Set(["The Log","Zap","Barbarian Barrel","Arrows","Tornado","Earthquake"]),
-  building: new Set(["Cannon","Tesla","Bomb Tower","Inferno Tower","Goblin Cage","Furnace"]),
-  airTarget: new Set([
-    "Musketeer","Archers","Mega Minion","Baby Dragon","Electro Wizard","Inferno Dragon",
-    "Tesla","Minions","Bats","Phoenix"
-  ]),
-  splash: new Set(["Baby Dragon","Valkyrie","Bomb Tower","Princess","Electro Wizard","Tornado"]),
-  reset: new Set(["Zap","Electro Wizard","Electro Spirit","Zappies"])
-};
+// Elixir costs and role tags now loaded from data/roles.map.json via src/roles.ts
 
 const is = (name: string, set: Set<string>) => set.has(name);
 
@@ -116,14 +84,25 @@ function classifyArchetype(names: string[], avg: number, roles: DeckAnalysis["ro
 }
 
 // --- API helpers ---
+function encodePlayerTag(tag: string) {
+  // Accept raw ("P22...") or already-encoded ("%23P22...") values from routes
+  const decoded = safeDecode(tag);
+  const withHash = decoded.startsWith("#") ? decoded : `#${decoded}`;
+  return encodeURIComponent(withHash);
+}
+
+function safeDecode(s: string) {
+  try { return decodeURIComponent(s); } catch { return s; }
+}
+
 export async function getPlayer(tag: string) {
-  const enc = encodeURIComponent(tag.replace(/^#/, "%23"));
+  const enc = encodePlayerTag(tag);
   const { data } = await API.get(`/players/${enc}`);
   return data;
 }
 
 export async function getBattlelog(tag: string, limit = 25) {
-  const enc = encodeURIComponent(tag.replace(/^#/, "%23"));
+  const enc = encodePlayerTag(tag);
   const { data } = await API.get(`/players/${enc}/battlelog`);
   return (data as any[]).slice(0, limit);
 }
